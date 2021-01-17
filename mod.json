@@ -1,0 +1,13 @@
+{
+	"Name": "vu-ks-attackheli",
+	"Authors": ["Maxinger15"],
+	"Description": "Lets the player spawn an attackhelicopter",
+	"URL": "",
+	"Version": "1.0.0",
+	"HasWebUI": false,
+	"HasVeniceEXT": true,
+	"Dependencies": {
+		"veniceext": "^1.0.0",
+		"VU-Killstreak" : "^1.2.3"
+    }
+}
