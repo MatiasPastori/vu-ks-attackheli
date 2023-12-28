@@ -10,11 +10,11 @@ local FiringMode = {
 
 local configs = {
 	[FiringMode.Target] = {
-		{radius = 1, segments = 15, width = 0.5},
-		{radius = 2, segments = 20, width = 0.5},
-		{radius = 3, segments = 25, width = 0.5}
+		{ radius = 1, segments = 15, width = 0.5 },
+		{ radius = 2, segments = 20, width = 0.5 },
+		{ radius = 3, segments = 25, width = 0.5 }
 	},
-	[FiringMode.Area] = {{radius = STRIKE_AREA_RADIUS, segments = 80, width = 1}}
+	[FiringMode.Area] = { { radius = STRIKE_AREA_RADIUS, segments = 80, width = 1 } }
 }
 
 local pointOfAim = {
@@ -41,6 +41,18 @@ local WHITE = Vec4(1, 1, 1, 0.5)
 
 local outOfBound = false
 
+local isEnabled = false
+
+Events:Subscribe("Level:Loaded", function()
+	NetEvents:Send("KSChopperServer:PlayerSync")
+
+	NetEvents:Subscribe("KSChopperServer:Enabled", function(attackheliFound)
+		print('|||||||||||||| The value recieved: ' .. tostring(attackheliFound))
+		isEnabled = attackheliFound
+	end)
+end)
+
+
 --zones[#zones + 1] = {position = ClientUtils:GetCameraTransform().trans, points = {}, timer = 0}
 
 Events:Subscribe(
@@ -58,7 +70,7 @@ Events:Subscribe(
 
 Hooks:Install(
 	"UI:PushScreen",
-	1,
+	140,
 	function(hook, screen, priority, parentGraph, stateNodeGuid)
 		local screen = UIGraphAsset(screen)
 
@@ -81,6 +93,23 @@ Events:Subscribe(
 		Events:Subscribe(
 			"Player:UpdateInput",
 			function()
+				if not isEnabled then
+					Events:Dispatch("Killstreak:showNotification",
+						json.encode({
+							title = "Attack Helicopter",
+							message =
+							"ORDER DENIED: There are no helicopters in this map!"
+						}))
+					Events:Dispatch("Killstreak:UnavailableKS", stepNr)
+					pointOfAim.mode = FiringMode.Disabled
+					Events:Dispatch("Killstreak:usedStep", stepNr)
+					Events:Unsubscribe("Player:UpdateInput")
+					Events:Unsubscribe("UpdateManager:Update")
+					Events:Unsubscribe("UI:DrawHud")
+					updateEvent = nil
+					drawHudEvent = nil
+					return
+				end
 				if updateEvent == nil then
 					updateEvent = Events:Subscribe("UpdateManager:Update", OnUpdate)
 				end
@@ -91,7 +120,7 @@ Events:Subscribe(
 				if outOfBound then
 					return
 				end
-				if InputManager:WentKeyUp(InputDeviceKeys.IDK_F9) and pointOfAim.mode == FiringMode.Target then
+				if InputManager:WentKeyUp(InputDeviceKeys.IDK_Q) and pointOfAim.mode == FiringMode.Target then
 					NetEvents:SendLocal("vu-ks-attackheli:Launch", pointOfAim.position)
 					print("Killstreak used")
 					pointOfAim.mode = FiringMode.Disabled
@@ -126,13 +155,13 @@ if debug then
 				pointOfAim.mode = FiringMode.Disabled
 			end
 
-			if InputManager:WentKeyDown(InputDeviceKeys.IDK_F9) and pointOfAim.mode == FiringMode.Target then
+			if InputManager:WentKeyDown(InputDeviceKeys.IDK_Q) and pointOfAim.mode == FiringMode.Target then
 				if outOfBound then
 					return
 				end
 				NetEvents:SendLocal("vu-ks-attackheli:Launch", pointOfAim.position)
 
-				targets[#targets + 1] = {position = pointOfAim.position:Clone(), points = {}, timer = MISSILE_AIRTIME}
+				targets[#targets + 1] = { position = pointOfAim.position:Clone(), points = {}, timer = MISSILE_AIRTIME }
 			end
 		end
 	)
@@ -155,7 +184,6 @@ function OnDrawHud()
 				DrawTarget(pointOfAimCircle.points, FiringMode.Area, WHITE)
 			end
 		end
-
 	end
 end
 
@@ -212,7 +240,7 @@ function OnUpdate(delta, pass)
 			local innerPoints = GetCirclePoints(pointOfAim.position, config.radius - config.width, config.segments)
 			local outerPoints = GetCirclePoints(pointOfAim.position, config.radius, config.segments)
 
-			pointOfAim.points[index] = {inner = {}, outer = {}}
+			pointOfAim.points[index] = { inner = {}, outer = {} }
 
 			for i = 1, config.segments do
 				pointOfAim.points[index].inner[i] = RaycastDown(innerPoints[i])
@@ -223,7 +251,7 @@ function OnUpdate(delta, pass)
 		--for index, config in pairs(configs[pointOfAimCircle.mode]) do
 		--	local innerPoints = GetCirclePoints(pointOfAimCircle.position, config.radius - config.width, config.segments)
 		--	local outerPoints = GetCirclePoints(pointOfAimCircle.position, config.radius, config.segments)
---
+		--
 		--	pointOfAimCircle.points[index] = {inner = {}, outer = {}}
 
 		--	for i = 1, config.segments do
@@ -240,7 +268,7 @@ function OnUpdate(delta, pass)
 				local innerPoints = GetCirclePoints(target.position, config.radius - config.width, config.segments)
 				local outerPoints = GetCirclePoints(target.position, config.radius, config.segments)
 
-				target.points[index] = {inner = {}, outer = {}}
+				target.points[index] = { inner = {}, outer = {} }
 
 				for i = 1, config.segments do
 					target.points[index].inner[i] = RaycastDown(innerPoints[i])
@@ -257,7 +285,7 @@ function OnUpdate(delta, pass)
 				local innerPoints = GetCirclePoints(zone.position, config.radius - config.width, config.segments)
 				local outerPoints = GetCirclePoints(zone.position, config.radius, config.segments)
 
-				zone.points[index] = {inner = {}, outer = {}}
+				zone.points[index] = { inner = {}, outer = {} }
 
 				for i = 1, config.segments do
 					zone.points[index].inner[i] = RaycastDown(innerPoints[i])
@@ -294,11 +322,11 @@ function RaycastDown(position)
 	-- Perform raycast, returns a RayCastHit object.
 	local raycastHit =
 		RaycastManager:Raycast(
-		castStart,
-		castEnd,
-		RayCastFlags.DontCheckWater | RayCastFlags.DontCheckCharacter | RayCastFlags.DontCheckRagdoll |
+			castStart,
+			castEnd,
+			RayCastFlags.DontCheckWater | RayCastFlags.DontCheckCharacter | RayCastFlags.DontCheckRagdoll |
 			RayCastFlags.CheckDetailMesh
-	)
+		)
 
 	if raycastHit == nil then
 		return position
@@ -329,19 +357,19 @@ function Raycast()
 	-- We get the raycast end transform with the calculated direction and the max distance.
 	local castEnd =
 		Vec3(
-		transform.trans.x + (direction.x * 1000),
-		transform.trans.y + (direction.y * 1000),
-		transform.trans.z + (direction.z * 1000)
-	)
+			transform.trans.x + (direction.x * 1000),
+			transform.trans.y + (direction.y * 1000),
+			transform.trans.z + (direction.z * 1000)
+		)
 
 	-- Perform raycast, returns a RayCastHit object.
 	local raycastHit =
 		RaycastManager:Raycast(
-		castStart,
-		castEnd,
-		RayCastFlags.DontCheckWater | RayCastFlags.DontCheckCharacter | RayCastFlags.DontCheckRagdoll |
+			castStart,
+			castEnd,
+			RayCastFlags.DontCheckWater | RayCastFlags.DontCheckCharacter | RayCastFlags.DontCheckRagdoll |
 			RayCastFlags.CheckDetailMesh
-	)
+		)
 
 	return raycastHit
 end
